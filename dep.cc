@@ -148,9 +148,7 @@ struct RuleMerger {
   bool is_double_colon;
 
   RuleMerger()
-      : primary_rule(nullptr),
-        parent(nullptr),
-        is_double_colon(false) {}
+      : primary_rule(nullptr), parent(nullptr), is_double_colon(false) {}
 
   void AddImplicitOutput(Symbol output, RuleMerger* merger) {
     implicit_outputs.push_back(make_pair(output, merger));
@@ -166,7 +164,7 @@ struct RuleMerger {
                 "*** implicit output `%s' of `%s' was already defined by `%s' "
                 "at %s:%d",
                 output.c_str(), p.c_str(), parent_sym.c_str(),
-                parent->primary_rule->cmd_loc());
+                LOCF(parent->primary_rule->cmd_loc()));
     }
     if (primary_rule) {
       ERROR_LOC(primary_rule->cmd_loc(),
@@ -370,7 +368,7 @@ class DepBuilder {
       cur_rule_vars_.reset(new Vars);
       ev_->set_current_scope(cur_rule_vars_.get());
       DepNode* n = BuildPlan(target, Intern(""));
-      nodes->push_back({target,n});
+      nodes->push_back({target, n});
       ev_->set_current_scope(NULL);
       cur_rule_vars_.reset(NULL);
     }
@@ -770,7 +768,11 @@ class DepBuilder {
       DepNode* c = BuildPlan(input, output);
       n->deps.push_back({input, c});
 
-      if (!n->is_phony && c->is_phony) {
+      bool is_phony = c->is_phony;
+      if (!is_phony && !c->has_rule && g_flags.top_level_phony) {
+        is_phony = input.str().find("/") == string::npos;
+      }
+      if (!n->is_phony && is_phony) {
         if (g_flags.werror_real_to_phony) {
           ERROR_LOC(n->loc,
                     "*** real file \"%s\" depends on PHONY target \"%s\"",
@@ -785,7 +787,7 @@ class DepBuilder {
 
     for (Symbol input : n->actual_order_only_inputs) {
       DepNode* c = BuildPlan(input, output);
-      n->order_onlys.push_back({input,c});
+      n->order_onlys.push_back({input, c});
     }
 
     n->has_rule = true;
